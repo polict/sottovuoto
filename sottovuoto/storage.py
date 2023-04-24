@@ -10,9 +10,6 @@ Typical usage example:
 """
 
 import logging
-from slither.core.solidity_types import (
-    ArrayType
-)
 from sottovuoto import utils
 
 SLOT_SPACE_IN_BYTES = 32
@@ -52,7 +49,7 @@ class Storage():
             if utils.is_struct(var):
                 log.debug(f"{var.type} is a struct")
                 self.add_struct_or_array_to_storage(var)
-            elif isinstance(var.type, ArrayType):
+            elif utils.is_array(var):
                 log.debug(f"{var} is an array")
                 self.add_struct_or_array_to_storage(var)
             else:

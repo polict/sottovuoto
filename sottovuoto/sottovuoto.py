@@ -12,8 +12,11 @@ Typical usage example:
 
 import logging
 from slither.slither import Slither
-from slither.core.solidity_types import (
-    ArrayType
+from slither.core.declarations import (
+    StructureContract
+)
+from slither.core.variables.state_variable import (
+    StateVariable
 )
 from ortools.linear_solver import pywraplp
 from sottovuoto.storage import (
@@ -124,9 +127,13 @@ class Sottovuoto():
         data = {}
         data['weights'] = []
         index_to_rich_var = []
+        # set structs and arrays aside, we'll add them at the end
+        tail_vars = []
         for var in vars:
-            var_weight = var.type.storage_size[0] if var.type.storage_size[0] <= 32 else 32
-            data['weights'].append(var_weight)
+            if utils.is_struct(var) or utils.is_array(var):
+                tail_vars.append(var)
+                continue
+            data['weights'].append(var.type.storage_size[0])
             index_to_rich_var.append(var)
 
         data['items'] = list(range(len(data['weights'])))
@@ -184,6 +191,12 @@ class Sottovuoto():
                         log.debug(f"  Total weight: {bin_weight}")
                         opt_slots_map[j] = bin_items
 
+            # add the structs and arrays at the end
+            current_slot = len(opt_slots_map)
+            for struct_or_array in tail_vars:
+                current_slot += 1
+                opt_slots_map[current_slot] = [struct_or_array]
+
             log.debug(f"Number of slots used: {num_bins}")
             log.debug(f"Time = {solver.WallTime()} milliseconds")
             return True, opt_slots_map
@@ -237,17 +250,18 @@ class Sottovuoto():
         """
 
         vars = []
-        # struct is a StateVariable < UserDefinedType < StructureVariable
-        # so we need to go up two types
-        for var in struct.type.type.elems_ordered:
-            vars.append(var)
+        if isinstance(struct, StateVariable):
+            # struct is a StateVariable < UserDefinedType < StructureVariable
+            # so we need to go up two types
+            for var in struct.type.type.elems_ordered:
+                vars.append(var)
+        if isinstance(struct, StructureContract):
+            for var in struct.elems_ordered:
+                vars.append(var)
         return vars
 
-    def are_structs_packed(self, vars):
+    def are_structs_packed(self):
         """A wrapper around self.are_tight_packed for structs.
-
-        Args:
-            vars: the full list of vars filter and then pack
 
         Returns:
             A tuple with number of slots spared and the optimized variables
@@ -255,7 +269,8 @@ class Sottovuoto():
 
         spared_slots = 0
         # we are only interested in structs
-        for var in [var for var in vars if utils.is_struct(var)]:
+        opt_structs = []
+        for var in [var for var in self.contract.structures_declared]:
             vars_in_struct = self.break_down_struct(var)
             (struct_is_tight_packed, new_members_order) = self.are_tight_packed(vars_in_struct)
             if struct_is_tight_packed != 0:
@@ -263,9 +278,10 @@ class Sottovuoto():
                           f"optimized order: " 
                           f"{[str(member) for member in enumerate(new_members_order)]}")
                 var.opt_version = new_members_order
+                opt_structs.append(var)
                 spared_slots += struct_is_tight_packed
 
-        return spared_slots, vars
+        return spared_slots, opt_structs
 
     def analyze_packing(self):
         """Entrypoint for the analysis.
@@ -286,28 +302,21 @@ class Sottovuoto():
             log.debug("=================== STRUCTS ANALYSIS =========================")
 
         # let's analyze the structs first
-        (structs_are_tight_packed, vars_including_opt_structs) = \
-            self.are_structs_packed(vars_in_contract)
+        (structs_are_tight_packed, opt_structs) = \
+            self.are_structs_packed()
 
         # then we analyze the whole contract,
         # but skip really simple ones
-        if len(vars_including_opt_structs) < 3:
+        if len(vars_in_contract) < 3:
             log.debug(f"too few variables: {self.contract.name}'s storage analysis was skipped.")
-            return ((structs_are_tight_packed, vars_including_opt_structs),
+            return ((structs_are_tight_packed, opt_structs),
                 (0, None))
 
         log.debug("==================== CONTRACT ANALYSIS ======================")
-
-        # structs and arrays have their own slots
-        # so we don't consider them for packing
-        packable_vars = [var for var in vars_in_contract if \
-                         (not utils.is_struct(var) and \
-                          not isinstance(var.type, ArrayType))]
-
         (contract_is_tight_packed, maybe_opt_slots_map) = \
-            self.are_tight_packed(vars_including_opt_structs)
+            self.are_tight_packed(vars_in_contract)
 
-        return ((structs_are_tight_packed, vars_including_opt_structs),
+        return ((structs_are_tight_packed, opt_structs),
                 (contract_is_tight_packed, maybe_opt_slots_map))
 
     def output(self, analysis_output, output_choice):
@@ -320,13 +329,13 @@ class Sottovuoto():
 
         assert output_choice == "stdout"
 
-        (structs_are_tight_packed_or_count, vars_in_contract), \
+        (structs_are_tight_packed_or_count, opt_structs), \
         (contract_is_tight_packed_or_count, new_slots_map) = analysis_output
         if structs_are_tight_packed_or_count != 0:
             log.info(f"{self.file} -> {self.contract.name}'s structs are not tight packed.")
             log.info(f"{structs_are_tight_packed_or_count} slot(s) could be spared "
                      "by defining them in this order:")
-            for var in [var for var in vars_in_contract if hasattr(var, 'opt_version')]:
+            for var in [var for var in opt_structs if hasattr(var, 'opt_version')]:
                 log.info(f"{self.contract.name} -> {var}:")
                 for slot in var.opt_version:
                     for member in var.opt_version[slot]:

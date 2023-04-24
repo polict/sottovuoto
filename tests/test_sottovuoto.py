@@ -161,5 +161,46 @@ def test_user_struct_between_uint128():
     ((spareable_structs_slots, vars), 
      (spareable_storage_slots, _)) = sv.analyze_packing()
     assert spareable_structs_slots == 3
-    assert len(vars[1].opt_version) == 5
+    assert len(vars[0].opt_version) == 5
+    assert spareable_storage_slots == 1
+
+"""
+nested_expensive_struct.sol
+
+struct ExpensiveStruct {
+    uint64 a; //uses 8 bytes
+    bytes32 e; //uses 32 bytes writes in new slot
+    uint64 b; //uses 8 bytes writes in new slot
+    bytes32 f; //uses 32 bytes writes in new slot
+    uint32 c; //uses 4 bytes writes in new slot
+    bytes32 g; //uses 32 bytes writes in new slot
+    uint8 d; //uses 1 byte writes in new slot
+    bytes32 h; //uses 32 bytes writes in new slot
+}
+
+struct ChildStruct {
+    uint128 child_a;
+    uint256 child_b;
+    uint128 child_c;
+}
+
+struct NestedExpensive {
+    ExpensiveStruct nested_a;
+    uint128 nested_b;
+    ChildStruct nested_c;
+    uint256 nested_d;
+    uint128 nested_e;
+}
+
+uint128 public a;
+NestedExpensive private example;
+uint128 public b;
+"""
+def test_nested_expensive_struct():
+    contract_path = "tests/contracts/nested_expensive_struct.sol"
+    sv = Sottovuoto(contract_path)
+    ((spareable_structs_slots, vars),
+     (spareable_storage_slots, _)) = sv.analyze_packing()
+    assert spareable_structs_slots == 3 + 1 + 1
+    assert len(vars[2].opt_version) == 4
     assert spareable_storage_slots == 1
