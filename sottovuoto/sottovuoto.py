@@ -13,8 +13,7 @@ Typical usage example:
 import logging
 from slither.slither import Slither
 from slither.core.solidity_types import (
-    ArrayType,
-    UserDefinedType
+    ArrayType
 )
 from ortools.linear_solver import pywraplp
 from sottovuoto.storage import (
@@ -126,7 +125,8 @@ class Sottovuoto():
         data['weights'] = []
         index_to_rich_var = []
         for var in vars:
-            data['weights'].append(var.type.storage_size[0])
+            var_weight = var.type.storage_size[0] if var.type.storage_size[0] <= 32 else 32
+            data['weights'].append(var_weight)
             index_to_rich_var.append(var)
 
         data['items'] = list(range(len(data['weights'])))
@@ -304,7 +304,8 @@ class Sottovuoto():
                          (not utils.is_struct(var) and \
                           not isinstance(var.type, ArrayType))]
 
-        (contract_is_tight_packed, maybe_opt_slots_map) = self.are_tight_packed(packable_vars)
+        (contract_is_tight_packed, maybe_opt_slots_map) = \
+            self.are_tight_packed(vars_including_opt_structs)
 
         return ((structs_are_tight_packed, vars_including_opt_structs),
                 (contract_is_tight_packed, maybe_opt_slots_map))
@@ -338,6 +339,7 @@ class Sottovuoto():
             for slot in new_slots_map:
                 log.debug(f"slot #{slot}: {new_slots_map[slot]}")
                 for var in new_slots_map[slot]:
-                    log.info(f"{var.type} {var.visibility} {var}")
+                    var.visibility = " " if var.visibility == "internal" else f" {var.visibility} "
+                    log.info(f"{var.type}{var.visibility}{var}")
 
         log.debug("==============================================================")

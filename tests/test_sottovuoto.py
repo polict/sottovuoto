@@ -135,3 +135,31 @@ def test_user_unpacked():
      (_, _)) = sv.analyze_packing()
     assert spareable_structs_slots == 2
     assert len(vars[0].opt_version) == 3
+
+"""
+struct_between_uint128.sol
+
+struct ExpensiveStruct {
+    uint64 a; //uses 8 bytes
+    bytes32 e; //uses 32 bytes writes in new slot
+    uint64 b; //uses 8 bytes writes in new slot
+    bytes32 f; //uses 32 bytes writes in new slot
+    uint32 c; //uses 4 bytes writes in new slot
+    bytes32 g; //uses 32 bytes writes in new slot
+    uint8 d; //uses 1 byte writes in new slot
+    bytes32 h; //uses 32 bytes writes in new slot
+}
+
+uint128 a;
+ExpensiveStruct example;
+uint128 b;
+
+"""
+def test_user_struct_between_uint128():
+    contract_path = "tests/contracts/struct_between_uint128.sol"
+    sv = Sottovuoto(contract_path)
+    ((spareable_structs_slots, vars), 
+     (spareable_storage_slots, _)) = sv.analyze_packing()
+    assert spareable_structs_slots == 3
+    assert len(vars[1].opt_version) == 5
+    assert spareable_storage_slots == 1
