@@ -1,4 +1,4 @@
-# sottovuoto (/sottovwɔto/): a tight variable packing tool for solidity 📦
+# sottovuoto: a tight variable packing tool for solidity 📦
 
 > State variables of contracts are stored in storage in a compact way such that multiple values sometimes use the same storage slot. Except for dynamically-sized arrays and mappings (see below), data is stored contiguously item after item starting with the first state variable, which is stored in slot 0. For each variable, a size in bytes is determined according to its type. Multiple, contiguous items that need less than 32 bytes are packed into a single storage slot if possible, according to the following rules:
 >
@@ -18,6 +18,9 @@
 
 from [1]
 
+## Why is it important to pack the storage?
+It will reduce the amount of gas required to store the variables in storage, as the same variables can be packed in fewer slots: it will cost less to interact with your contract. Moreover, using less slots will decrease the contract's footprint on the blockchain size, improving scalability.
+
 ## Difficulties encountered
 
 ### Semgrep is useless here
@@ -32,16 +35,16 @@ from [1]
 * Variables are not only packed in bins, but there is additional logic involved for arrays and structs: "Structs and array data always start a new slot" and "Items following struct or array data always start a new storage slot" [1].
 * I had two options: 
     1. google's bin packing lib supports constraints, but it is quite convoluted to use: https://developers.google.com/optimization/pack/bin_packing#define_the_constraints
-    2. completely ignore structs and arrays in whole-contract storage analysis, as they will have their own slots in any case (I chose this one).
+    2. move all structs and arrays to the end of the variables list (the end of the filled storage) and do not try to pack them: I chose this option.
 
 ### An array item or struct member can't be in two slots
-* Array and structs items are basically standalone variables that have a specific order to respect, so we can't easily fill-up slots by dividing (array_length * item_size) / slot_size.
-* Solution: again, ignore structs and arrays in whole-contract analysis. in structs analysis they are already broken down so nested structs are supported.
+* Array and structs items are basically standalone variables that have a specific order to respect, so we can't easily fill-up slots by dividing: (array_length * item_size) / slot_size.
+* Solution: again, ignore structs and arrays in whole-contract analysis. In structs analysis they are already broken down so nested structs are supported.
 
 ### The real number of slots in use is miscalculated
 * Since i chose to ignore structs and arrays in slots calculations, the actual number of slots used I calculate is less than in reality. That said, since we only show the spared slots number, we should be fine as long as the difference between the current and optimized version is equal to the difference without the structs and arrays: 
 
-$slots\_length(current\ order) - slots\_length(optimized\ order) == slots\_length(current\ order\ without\ structs\ and\ arrays) - slots\_length(optimized\ order\ without\ structs\ and\ arrays)$
+slots_length(current order) - slots_length(optimized order) == slots_length(current order without structs and arrays) - slots_length(optimized order without structs and arrays)
 
 ### Struct and contract storage packing at the same time is messy
 * Solution: first analyze structs, then analyze the whole storage.

@@ -7,10 +7,7 @@ logger = logging.getLogger("tests-sottovuoto")
 logging.getLogger().setLevel(logging.DEBUG)
 
 """
-False positives tests:
-    * cheap_struct.sol
-    * doc_cheap.sol
-    * user_packed.sol
+False positives tests
 """
 
 """
@@ -203,4 +200,60 @@ def test_nested_expensive_struct():
      (spareable_storage_slots, _)) = sv.analyze_packing()
     assert spareable_structs_slots == 3 + 1 + 1
     assert len(vars[2].opt_version) == 4
+    assert spareable_storage_slots == 1
+
+"""
+packable_enum.sol
+
+uint128 public a;
+uint256 private c;
+enum Direction { Sud, East, North, West }
+Direction directionChosen;
+"""
+def test_packable_enum():
+    contract_path = "tests/contracts/packable_enum.sol"
+    sv = Sottovuoto(contract_path)
+    ((_, _),
+     (spareable_storage_slots, _)) = sv.analyze_packing()
+    assert spareable_storage_slots == 1
+
+"""
+udtuint128_doc.sol
+
+@todo support UDT once slither does
+
+contract UDTDoc {
+
+    type UDTuint128 is uint128;
+
+    UDTuint128 a;
+    uint256 private b;
+    uint128 c;
+}
+
+def test_udtuint128_doc():
+    contract_path = "tests/contracts/udtuint128_doc.sol"
+    sv = Sottovuoto(contract_path)
+    ((_, _),
+     (spareable_storage_slots, new_slots_map)) = sv.analyze_packing()
+    assert spareable_storage_slots == 1
+"""
+
+"""
+nested_mapping.sol
+
+struct abc {
+    uint8 small1;
+    uint8 small2;
+    bytes32 bigboy;
+    uint8 small3;
+    mapping(address => mapping(uint => bool)) someNestedMapping;
+    uint8 small4;
+}
+"""
+def test_nested_mapping():
+    contract_path = "tests/contracts/nested_mapping.sol"
+    sv = Sottovuoto(contract_path)
+    ((_, _),
+     (spareable_storage_slots, _)) = sv.analyze_packing()
     assert spareable_storage_slots == 1

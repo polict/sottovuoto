@@ -23,7 +23,7 @@ It will collect and analyze all .sol files found, recursively:
 
 ## Tests
 ### Run the unit tests
-`python -m pytest -s tests/`
+`pytest -s tests/`
 
 ### Call for tests (CFT)
 The test suite is pretty limited at the moment: contribute with your edge cases!
