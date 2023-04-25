@@ -351,6 +351,6 @@ class Sottovuoto():
                     var.visibility = " " if var.visibility == "internal" else f" {var.visibility} "
                     log.info(f"{var.type}{var.visibility}{var}")
         else:
-            log.info(f"{self.contract.name}: nothing to optimize!")
+            log.info(f"{self.contract.name}'s contract analysis: nothing to optimize!")
 
         log.debug("==============================================================")
