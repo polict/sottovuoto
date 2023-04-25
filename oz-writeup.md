@@ -18,6 +18,23 @@
 
 from [1]
 
+## An example of wasteful packing
+```solidity
+contract Wasteful {
+    uint128 a;          slot #0
+    uint256 b;          slot #1
+    uint128 c;          slot #2
+}
+```
+Packed alternative:
+```solidity
+contract Wasteful {
+    uint128 a;          slot #0, first half
+    uint128 c;          slot #0, second half
+    uint256 b;          slot #1
+}
+```
+
 ## Why is it important to pack the storage?
 It will reduce the amount of gas required to store the variables in storage, as the same variables can be packed in fewer slots: it will cost less to interact with your contract. Moreover, using less slots will decrease the contract's footprint on the blockchain size, improving scalability.
 
@@ -103,9 +120,8 @@ it is similar to my approach, but implemented as a detector. It has some tradeof
 
 ## Lessons learned
 * Implementing an idea might be harder than anticipated
-* Choosing and having access to mature tools is key
+* Having access and alternatives to mature tools is key
 * Naming things - and respecting naming conventions - is still a problem
-* Skipping steps might come at no cost (spectre/meltdown 👀)
 * Tools are as reliable as their test suites
 
 ## References
