@@ -350,9 +350,7 @@ class Sottovuoto():
                 for var in new_slots_map[slot]:
                     var.visibility = " " if var.visibility == "internal" else f" {var.visibility} "
                     log.info(f"{var.type}{var.visibility}{var}")
-
-        if structs_are_tight_packed_or_count == 0 and \
-        contract_is_tight_packed_or_count == 0:
+        else:
             log.info(f"{self.contract.name}: nothing to optimize!")
 
         log.debug("==============================================================")
